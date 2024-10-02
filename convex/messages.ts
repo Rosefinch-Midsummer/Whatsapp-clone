@@ -1,6 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { api } from "./_generated/api";
+// import { api } from "./_generated/api";
 
 export const sendTextMessage = mutation({
 	args: {
@@ -42,9 +42,40 @@ export const sendTextMessage = mutation({
 			conversation: args.conversation,
 			messageType: "text",
 		});
+
+		// TODO => add @gpt check later
+		// if (args.content.startsWith("@gpt")) {
+		// 	// Schedule the chat action to run immediately
+		// 	await ctx.scheduler.runAfter(0, api.openai.chat, {
+		// 		messageBody: args.content,
+		// 		conversation: args.conversation,
+		// 	});
+		// }
+
+		// if (args.content.startsWith("@dall-e")) {
+		// 	await ctx.scheduler.runAfter(0, api.openai.dall_e, {
+		// 		messageBody: args.content,
+		// 		conversation: args.conversation,
+		// 	});
+		// }
 	},
 });
 
+export const sendChatGPTMessage = mutation({
+	args: {
+		content: v.string(),
+		conversation: v.id("conversations"),
+		messageType: v.union(v.literal("text"), v.literal("image")),
+	},
+	handler: async (ctx, args) => {
+		await ctx.db.insert("messages", {
+			content: args.content,
+			sender: "ChatGPT",
+			messageType: args.messageType,
+			conversation: args.conversation,
+		});
+	},
+});
 
 // Optimized
 export const getMessages = query({
@@ -92,6 +123,43 @@ export const getMessages = query({
 	},
 });
 
+export const sendImage = mutation({
+	args: { imgId: v.id("_storage"), sender: v.id("users"), conversation: v.id("conversations") },
+	handler: async (ctx, args) => {
+		const identity = await ctx.auth.getUserIdentity();
+		if (!identity) {
+			throw new ConvexError("Unauthorized");
+		}
+
+		const content = (await ctx.storage.getUrl(args.imgId)) as string;
+
+		await ctx.db.insert("messages", {
+			content: content,
+			sender: args.sender,
+			messageType: "image",
+			conversation: args.conversation,
+		});
+	},
+});
+
+export const sendVideo = mutation({
+	args: { videoId: v.id("_storage"), sender: v.id("users"), conversation: v.id("conversations") },
+	handler: async (ctx, args) => {
+		const identity = await ctx.auth.getUserIdentity();
+		if (!identity) {
+			throw new ConvexError("Unauthorized");
+		}
+
+		const content = (await ctx.storage.getUrl(args.videoId)) as string;
+
+		await ctx.db.insert("messages", {
+			content: content,
+			sender: args.sender,
+			messageType: "video",
+			conversation: args.conversation,
+		});
+	},
+});
 
 // unoptimized
 
